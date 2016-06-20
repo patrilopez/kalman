@@ -47,14 +47,14 @@ int main(int argc, char * const argv[]) {
 		}
 		KF.statePre.at<float>(0) = mouse_info.x;
 		KF.statePre.at<float>(1) = mouse_info.y;
-		KF.statePre.at<float>(2) = 0;
-		KF.statePre.at<float>(3) = 0;
+		KF.statePre.at<float>(2) = 4;
+		KF.statePre.at<float>(3) = 4;
 //Aqui deberia ir el jacobiano, pero no tengo la funcion para calcularlo (?)
 		KF.transitionMatrix = (Mat_<float>(4, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
 //KF.measurementMatrix deberia ser la jacobiana de h y no se quien es h
 		setIdentity(KF.measurementMatrix);
-		setIdentity(KF.processNoiseCov, Scalar::all(1e-4));
-		setIdentity(KF.measurementNoiseCov, Scalar::all(1e-1));
+		setIdentity(KF.processNoiseCov, Scalar::all(1));
+		setIdentity(KF.measurementNoiseCov, Scalar::all(1));
 		setIdentity(KF.errorCovPost, Scalar::all(.1));
 
 		mousev.clear();
@@ -65,7 +65,7 @@ int main(int argc, char * const argv[]) {
 		{
 			//            Point statePt(state(0),state(1));
 //vamos guardando el estado			
-			temp = kf.statePost;
+			temp = KF.statePost;
 			Mat prediction = KF.predict();
 			Point predictPt(prediction.at<float>(0), prediction.at<float>(1));
 //deberia modificar aqui el estado
