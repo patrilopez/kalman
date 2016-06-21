@@ -1,12 +1,11 @@
 #include <stdio.h>
 
 #include <math.h>
-
 #include <vector>
 #include <iostream>
 #include <ctime>
 #include <ratio>
-#include <chrono>
+
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -15,7 +14,7 @@
 
 using namespace cv;
 using namespace std;
-using namespace std::chrono;
+
 
 
 struct mouse_info_struct { int x, y; };
@@ -24,27 +23,34 @@ struct mouse_info_struct mouse_info = { -1,-1 }, last_mouse;
 vector<Point> mousev, kalmanv;
 
 void on_mouse(int event, int x, int y, int flags, void* param);
-void drawCross();
+
+
+void drawCross(cv::Mat &img, cv::Point2f center, cv::Scalar color, unsigned d);
 
 int main(int argc, char ** argv) {
 	Mat img(500, 500, CV_8UC3);
-	//KalmanFilter KF(4, 2, 0);
+	
 	Mat_<float> x(4, 1); /* (x, y, Vx, Vy) */
 	Mat processNoise(4, 1, CV_32F);
 	Mat_<float> measurement(2, 1); measurement.setTo(Scalar(0));
 	char code = (char)-1;
+
 	//Inicializamos los parametros de kalman
 	Mat x_pred = Mat::zeros(4, 1, CV_32F);
 	Mat x_est = Mat::zeros(4, 1, CV_32F);
 	Mat A = Mat::eye(4, 4, CV_32F);
-	///A = ( 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 ); //Jacobiana de funcion f, en la primera iteración deltat=0
+	
 
 	Mat At = Mat::eye(4, 4, CV_32F);
 
 	Mat Q = Mat::eye(4, 4, CV_32F);
+	Mat W = Mat::eye(4, 4, CV_32F);
+	Mat Wt = Mat::eye(4, 4, CV_32F);
 	Mat H = Mat::zeros(2, 4, CV_32F);
 	Mat Ht = Mat::zeros(4, 2, CV_32F);
 	Mat R = Mat::eye(2, 2, CV_32F);
+	Mat V = Mat::eye(2, 2, CV_32F);
+	Mat Vt = Mat::eye(2, 2, CV_32F);
 
 	Mat P_ant = Mat::zeros(4, 4, CV_32F);
 	Mat P = Mat::zeros(4, 4, CV_32F);
@@ -73,23 +79,23 @@ int main(int argc, char ** argv) {
 		x(2) = 0;
 		x(3) = 0;
 
-
-		H = (1, 0, 0, 0, 0, 1, 0, 0); //jacobiana de la funcion h
+		
+		H = (Mat_<double>(2,4) <<1, 0, 0, 0, 0, 1, 0, 0); //jacobiana de la funcion h
 		transpose(A, At);
-		//transpose(W, Wt);
-		//transpose(V, Vt);
+		transpose(W, Wt);
+		transpose(V, Vt);
 		transpose(H, Ht);
 		mousev.clear();
 		kalmanv.clear();
 
 
 		for (;;) {
-			auto start = std::chrono::high_resolution_clock::now();
-
+			//auto start = std::chrono::high_resolution_clock::now();
+			double deltat = (double)getTickCount();
 			transpose(A, At);
 			//--------------Predicción------------------
 
-			x_pred = 0;
+			x_pred = f;
 			P = A*P_ant*At + W*Q*Wt;
 			//------------------------------------------------
 
@@ -102,7 +108,7 @@ int main(int argc, char ** argv) {
 
 			//-------------------Correcion----------------
 
-			aux = (1 / (H*P*Ht + V*R*Vt);
+			aux = (1 / (H*P*Ht + V*R*Vt));
 			K = P*Ht*aux;
 			x_est = x_pred + K*(measurement - h);
 			P = (Id - K*H)*P;
@@ -116,11 +122,13 @@ int main(int argc, char ** argv) {
 			kalmanv.push_back(Point2f(x.at<float>(0), x.at<float>(1)));
 
 			// plot points
+
+
 			img = Scalar::all(0);
 			drawCross(img, Point2f(x.at<float>(0), x.at<float>(1)), Scalar(255, 255, 255), 5);
 			drawCross(img, measPt, Scalar(0, 0, 255), 5);
 
-
+		
 			for (int i = 0; i < mousev.size() - 1; i++) {
 				line(img, mousev[i], mousev[i + 1], Scalar(255, 255, 0), 1);
 			}
@@ -134,11 +142,12 @@ int main(int argc, char ** argv) {
 			if (code > 0)
 				break;
 
-			auto end = std::chrono::high_resolution_clock::now();
+			//auto end = std::chrono::high_resolution_clock::now();
 
-			std::chrono::duration<double> deltat = end - start;
-			A = (1, 0, deltat.count, 0, 0, 1, 0, deltat.count, 0, 0, 1, 0, 0, 0, 0, 1); //Jacobiana de funcion f
-			f = (x(0) + deltat.count*x(2), x(1) + deltat.count*x(3), x(2), x(3));
+			//std::chrono::duration<double> deltat = end - start;
+			deltat = ((double)getTickCount() - deltat)/getTickFrequency();
+			A = (Mat_<double>(4,4) <<1, 0, deltat, 0, 0, 1, 0, deltat, 0, 0, 1, 0, 0, 0, 0, 1); //Jacobiana de funcion f
+			f = (x(0) + deltat*x(2), x(1) + deltat*x(3), x(2), x(3));
 			h = (x(0), x(1));
 
 			if (code == 27 || code == 'q' || code == 'Q')
